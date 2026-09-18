@@ -1,14 +1,17 @@
+// Closes: R2, R3, U2, U3
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using HayatiDesk.Data;
 using HayatiDesk.Services;
+using System;
 using System.Collections.ObjectModel;
+using System.Windows;
+using System.Windows.Threading;
+using System.Threading.Tasks;
 
 namespace HayatiDesk.ViewModels;
 
 public partial class MainViewModel : ObservableObject, IAsyncDisposable
 {
-    private readonly DatabaseContext _databaseContext;
     private readonly IItemRepository _itemRepository;
     private bool _disposed;
 
@@ -30,12 +33,15 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty]
     private int _pendingCount;
 
+    [ObservableProperty]
+    private string? _errorMessage;
+
     public ObservableCollection<Category> Categories { get; } = [];
     public ObservableCollection<ItemViewModel> Items { get; } = [];
 
-    public MainViewModel(DatabaseContext databaseContext, IItemRepository itemRepository)
+    // U2: Removed DatabaseContext dependency. ViewModel only depends on IItemRepository.
+    public MainViewModel(IItemRepository itemRepository)
     {
-        _databaseContext = databaseContext;
         _itemRepository = itemRepository;
     }
 
@@ -53,6 +59,20 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
             Categories.Add(category);
         }
 
+        // R2: Seed default categories if empty
+        if (Categories.Count == 0)
+        {
+            await _itemRepository.AddCategoryAsync(new Category { Name = "General", Color = "#000000" });
+            await _itemRepository.AddCategoryAsync(new Category { Name = "Work", Color = "#FF0000" });
+            await _itemRepository.AddCategoryAsync(new Category { Name = "Personal", Color = "#00FF00" });
+            
+            Categories.Clear();
+            await foreach (var category in _itemRepository.GetAllCategoriesAsync())
+            {
+                Categories.Add(category);
+            }
+        }
+
         if (Categories.Count > 0 && SelectedCategory == null)
         {
             SelectedCategory = Categories[0];
@@ -66,7 +86,8 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         Items.Clear();
         await foreach (var item in _itemRepository.GetItemsByCategoryAsync(categoryId))
         {
-            Items.Add(new ItemViewModel(item));
+            // U3: Marshal to UI thread
+            Application.Current?.Dispatcher.Invoke(() => Items.Add(new ItemViewModel(item)), DispatcherPriority.Normal);
         }
     }
 
@@ -104,12 +125,13 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         var id = await _itemRepository.AddItemAsync(newItem);
         newItem.Id = id;
 
-        Items.Add(new ItemViewModel(newItem));
+        Application.Current?.Dispatcher.Invoke(() => Items.Add(new ItemViewModel(newItem)), DispatcherPriority.Normal);
         NewItemTitle = string.Empty;
         NewItemDescription = string.Empty;
         await UpdateStatsAsync();
     }
 
+    // R3: Exactly one owner of the flip. Command flips and persists.
     [RelayCommand]
     private async Task ToggleItemCompletionAsync(ItemViewModel item)
     {
@@ -126,17 +148,17 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         if (item == null) return;
 
         await _itemRepository.DeleteItemAsync(item.Id);
-        Items.Remove(item);
+        Application.Current?.Dispatcher.Invoke(() => Items.Remove(item), DispatcherPriority.Normal);
         await UpdateStatsAsync();
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         if (!_disposed)
         {
-            await _databaseContext.DisposeAsync();
             _disposed = true;
         }
+        return ValueTask.CompletedTask;
     }
 }
 

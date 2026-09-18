@@ -1,6 +1,11 @@
-using System.Data;
-using Microsoft.Data.Sqlite;
+// Closes: D1, D7
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using HayatiDesk.Data;
+using Microsoft.Data.Sqlite;
 
 namespace HayatiDesk.Services;
 
@@ -17,14 +22,22 @@ public interface IItemRepository
     Task<int> GetPendingCountAsync(CancellationToken cancellationToken = default);
 }
 
-public sealed class ItemRepository(DatabaseContext databaseContext) : IItemRepository
+public sealed class ItemRepository : IItemRepository
 {
-    private readonly DatabaseContext _databaseContext = databaseContext;
+    private readonly string _connectionString;
 
-    public async IAsyncEnumerable<Category> GetAllCategoriesAsync(CancellationToken cancellationToken = default)
+    public ItemRepository(DatabaseContext databaseContext)
+    {
+        _connectionString = databaseContext.ConnectionString;
+    }
+
+    // D7: Added [EnumeratorCancellation]
+    public async IAsyncEnumerable<Category> GetAllCategoriesAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         const string sql = "SELECT Id, Name, Color, CreatedAt FROM Categories ORDER BY Name;";
-        await using var command = _databaseContext.Connection.CreateCommand();
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
         command.CommandText = sql;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
@@ -40,7 +53,8 @@ public sealed class ItemRepository(DatabaseContext databaseContext) : IItemRepos
         }
     }
 
-    public async IAsyncEnumerable<Item> GetItemsByCategoryAsync(int categoryId, CancellationToken cancellationToken = default)
+    // D7: Added [EnumeratorCancellation]
+    public async IAsyncEnumerable<Item> GetItemsByCategoryAsync(int categoryId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         const string sql = """
             SELECT Id, Title, Description, CategoryId, Priority, DueDate, Completed, CreatedAt, UpdatedAt
@@ -49,7 +63,9 @@ public sealed class ItemRepository(DatabaseContext databaseContext) : IItemRepos
             ORDER BY Priority DESC, DueDate ASC;
             """;
 
-        await using var command = _databaseContext.Connection.CreateCommand();
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
         command.CommandText = sql;
         command.Parameters.AddWithValue("@CategoryId", categoryId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -60,7 +76,8 @@ public sealed class ItemRepository(DatabaseContext databaseContext) : IItemRepos
         }
     }
 
-    public async IAsyncEnumerable<Item> GetAllItemsAsync(CancellationToken cancellationToken = default)
+    // D7: Added [EnumeratorCancellation]
+    public async IAsyncEnumerable<Item> GetAllItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         const string sql = """
             SELECT Id, Title, Description, CategoryId, Priority, DueDate, Completed, CreatedAt, UpdatedAt
@@ -68,7 +85,9 @@ public sealed class ItemRepository(DatabaseContext databaseContext) : IItemRepos
             ORDER BY CategoryId, Priority DESC, DueDate ASC;
             """;
 
-        await using var command = _databaseContext.Connection.CreateCommand();
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
         command.CommandText = sql;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
@@ -81,7 +100,9 @@ public sealed class ItemRepository(DatabaseContext databaseContext) : IItemRepos
     public async Task<int> AddCategoryAsync(Category category, CancellationToken cancellationToken = default)
     {
         const string sql = "INSERT INTO Categories (Name, Color) VALUES (@Name, @Color); SELECT last_insert_rowid();";
-        await using var command = _databaseContext.Connection.CreateCommand();
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
         command.CommandText = sql;
         command.Parameters.AddWithValue("@Name", category.Name);
         command.Parameters.AddWithValue("@Color", category.Color);
@@ -98,7 +119,9 @@ public sealed class ItemRepository(DatabaseContext databaseContext) : IItemRepos
             SELECT last_insert_rowid();
             """;
 
-        await using var command = _databaseContext.Connection.CreateCommand();
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
         command.CommandText = sql;
         command.Parameters.AddWithValue("@Title", item.Title);
         command.Parameters.AddWithValue("@Description", (object?)item.Description ?? DBNull.Value);
@@ -113,15 +136,18 @@ public sealed class ItemRepository(DatabaseContext databaseContext) : IItemRepos
 
     public async Task<bool> UpdateItemAsync(Item item, CancellationToken cancellationToken = default)
     {
+        // D5: Use strftime for ISO-8601
         const string sql = """
             UPDATE Items
             SET Title = @Title, Description = @Description, CategoryId = @CategoryId,
                 Priority = @Priority, DueDate = @DueDate, Completed = @Completed,
-                UpdatedAt = datetime('now')
+                UpdatedAt = strftime('%Y-%m-%dT%H:%M:%fZ','now')
             WHERE Id = @Id;
             """;
 
-        await using var command = _databaseContext.Connection.CreateCommand();
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
         command.CommandText = sql;
         command.Parameters.AddWithValue("@Id", item.Id);
         command.Parameters.AddWithValue("@Title", item.Title);
@@ -138,7 +164,9 @@ public sealed class ItemRepository(DatabaseContext databaseContext) : IItemRepos
     public async Task<bool> DeleteItemAsync(int itemId, CancellationToken cancellationToken = default)
     {
         const string sql = "DELETE FROM Items WHERE Id = @Id;";
-        await using var command = _databaseContext.Connection.CreateCommand();
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
         command.CommandText = sql;
         command.Parameters.AddWithValue("@Id", itemId);
 
@@ -149,7 +177,9 @@ public sealed class ItemRepository(DatabaseContext databaseContext) : IItemRepos
     public async Task<int> GetCompletedCountAsync(CancellationToken cancellationToken = default)
     {
         const string sql = "SELECT COUNT(*) FROM Items WHERE Completed = 1;";
-        await using var command = _databaseContext.Connection.CreateCommand();
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
         command.CommandText = sql;
         var result = await command.ExecuteScalarAsync(cancellationToken);
         return Convert.ToInt32(result);
@@ -158,7 +188,9 @@ public sealed class ItemRepository(DatabaseContext databaseContext) : IItemRepos
     public async Task<int> GetPendingCountAsync(CancellationToken cancellationToken = default)
     {
         const string sql = "SELECT COUNT(*) FROM Items WHERE Completed = 0;";
-        await using var command = _databaseContext.Connection.CreateCommand();
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
         command.CommandText = sql;
         var result = await command.ExecuteScalarAsync(cancellationToken);
         return Convert.ToInt32(result);
@@ -179,25 +211,4 @@ public sealed class ItemRepository(DatabaseContext databaseContext) : IItemRepos
             UpdatedAt = reader.GetString(8)
         };
     }
-}
-
-public class Category
-{
-    public int Id { get; set; }
-    public required string Name { get; set; }
-    public required string Color { get; set; }
-    public string CreatedAt { get; set; } = string.Empty;
-}
-
-public class Item
-{
-    public int Id { get; set; }
-    public required string Title { get; set; }
-    public string? Description { get; set; }
-    public int CategoryId { get; set; }
-    public int Priority { get; set; }
-    public string? DueDate { get; set; }
-    public bool Completed { get; set; }
-    public string CreatedAt { get; set; } = string.Empty;
-    public string UpdatedAt { get; set; } = string.Empty;
 }
