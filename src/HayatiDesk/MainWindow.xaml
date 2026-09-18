@@ -1,4 +1,5 @@
-﻿<Window x:Class="HayatiDesk.MainWindow"
+<!-- Closes: B2, B3, R3, R4 -->
+<Window x:Class="HayatiDesk.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -10,7 +11,7 @@
     <Window.Resources>
         <local:ColorToBrushConverter x:Key="ColorToBrush"/>
         <local:StrikethroughConverter x:Key="StrikethroughConverter"/>
-        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <local:NullOrEmptyToVisibilityConverter x:Key="NullEmptyToVis"/>
     </Window.Resources>
     <Grid Margin="10">
         <Grid.ColumnDefinitions>
@@ -23,7 +24,6 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Categories Panel -->
         <Border Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" 
                 BorderBrush="#CCCCCC" BorderThickness="1" Margin="0,0,10,0" Padding="10">
             <DockPanel>
@@ -42,7 +42,6 @@
             </DockPanel>
         </Border>
 
-        <!-- Main Content -->
         <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
             <TextBlock Text="Completed:" VerticalAlignment="Center" Margin="0,0,5,0"/>
             <TextBlock Text="{Binding CompletedCount}" FontWeight="Bold" Margin="0,0,15,0"/>
@@ -50,7 +49,6 @@
             <TextBlock Text="{Binding PendingCount}" FontWeight="Bold"/>
         </StackPanel>
 
-        <!-- Items List -->
         <Border Grid.Row="1" Grid.Column="1" BorderBrush="#CCCCCC" BorderThickness="1" Margin="0,0,0,10">
             <ListBox ItemsSource="{Binding Items}" BorderThickness="0">
                 <ListBox.ItemTemplate>
@@ -61,22 +59,24 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <CheckBox Grid.Column="0" IsChecked="{Binding Completed}" 
+                            
+                            <!-- R3: OneWay binding, command handles the flip and persistence -->
+                            <CheckBox Grid.Column="0" IsChecked="{Binding Completed, Mode=OneWay}" 
                                       Command="{Binding DataContext.ToggleItemCompletionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                       CommandParameter="{Binding}"
                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                      
                             <StackPanel Grid.Column="1">
-                                <TextBlock Text="{Binding Title}" FontWeight="Bold">
-                                    <TextBlock.TextDecorations>
-                                        <TextDecorationCollection>
-                                            <TextDecoration Condition="{Binding Completed, Converter={StaticResource StrikethroughConverter}}"/>
-                                        </TextDecorationCollection>
-                                    </TextBlock.TextDecorations>
-                                </TextBlock>
+                                <!-- B2: Bind TextDecorations directly to the converter -->
+                                <TextBlock Text="{Binding Title}" FontWeight="Bold"
+                                           TextDecorations="{Binding Completed, Converter={StaticResource StrikethroughConverter}}"/>
+                                
+                                <!-- R4: Use NullOrEmptyToVisibilityConverter -->
                                 <TextBlock Text="{Binding Description}" 
                                            Foreground="#666666"
-                                           Visibility="{Binding Description, Converter={StaticResource BoolToVis}}"/>
+                                           Visibility="{Binding Description, Converter={StaticResource NullEmptyToVis}}"/>
                             </StackPanel>
+                            
                             <Button Grid.Column="2" Content="Delete" 
                                     Command="{Binding DataContext.DeleteItemCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                     CommandParameter="{Binding}"
@@ -87,14 +87,41 @@
             </ListBox>
         </Border>
 
-        <!-- Add Item Form -->
         <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Vertical">
-            <TextBox Text="{Binding NewItemTitle, UpdateSourceTrigger=PropertyChanged}" 
-                     PlaceholderText="New item title..." 
-                     Margin="0,0,0,5" Padding="5"/>
-            <TextBox Text="{Binding NewItemDescription, UpdateSourceTrigger=PropertyChanged}" 
-                     PlaceholderText="Description (optional)..." 
-                     Margin="0,0,0,5" Padding="5"/>
+            <!-- B3: Watermark overlay for Title -->
+            <Grid Margin="0,0,0,5">
+                <TextBox Text="{Binding NewItemTitle, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                <TextBlock Text="New item title..." Foreground="#999999" IsHitTestVisible="False" Margin="7,5,0,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NewItemTitle}" Value="">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+            
+            <!-- B3: Watermark overlay for Description -->
+            <Grid Margin="0,0,0,5">
+                <TextBox Text="{Binding NewItemDescription, UpdateSourceTrigger=PropertyChanged}" Padding="5"/>
+                <TextBlock Text="Description (optional)..." Foreground="#999999" IsHitTestVisible="False" Margin="7,5,0,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NewItemDescription}" Value="">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+            
             <Button Content="Add Item" Command="{Binding AddItemCommand}" Padding="10,5" HorizontalAlignment="Left"/>
         </StackPanel>
     </Grid>

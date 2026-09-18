@@ -1,0 +1,6 @@
+<!-- Closes: E2 -->
+<Project>
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>
