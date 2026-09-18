@@ -5,8 +5,97 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:HayatiDesk"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="HayatiDesk - Life Organizer" Height="600" Width="1000"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <local:ColorToBrushConverter x:Key="ColorToBrush"/>
+        <local:StrikethroughConverter x:Key="StrikethroughConverter"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+    <Grid Margin="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
+        <!-- Categories Panel -->
+        <Border Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" 
+                BorderBrush="#CCCCCC" BorderThickness="1" Margin="0,0,10,0" Padding="10">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Categories" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                <ItemsControl ItemsSource="{Binding Categories}" DockPanel.Dock="Top">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding Name}" 
+                                    Command="{Binding DataContext.SelectCategoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"
+                                    Margin="0,5" Padding="10,5" HorizontalContentAlignment="Left"
+                                    Background="{Binding Color, Converter={StaticResource ColorToBrush}}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </DockPanel>
+        </Border>
+
+        <!-- Main Content -->
+        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="Completed:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <TextBlock Text="{Binding CompletedCount}" FontWeight="Bold" Margin="0,0,15,0"/>
+            <TextBlock Text="Pending:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <TextBlock Text="{Binding PendingCount}" FontWeight="Bold"/>
+        </StackPanel>
+
+        <!-- Items List -->
+        <Border Grid.Row="1" Grid.Column="1" BorderBrush="#CCCCCC" BorderThickness="1" Margin="0,0,0,10">
+            <ListBox ItemsSource="{Binding Items}" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <CheckBox Grid.Column="0" IsChecked="{Binding Completed}" 
+                                      Command="{Binding DataContext.ToggleItemCompletionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      CommandParameter="{Binding}"
+                                      VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="{Binding Title}" FontWeight="Bold">
+                                    <TextBlock.TextDecorations>
+                                        <TextDecorationCollection>
+                                            <TextDecoration Condition="{Binding Completed, Converter={StaticResource StrikethroughConverter}}"/>
+                                        </TextDecorationCollection>
+                                    </TextBlock.TextDecorations>
+                                </TextBlock>
+                                <TextBlock Text="{Binding Description}" 
+                                           Foreground="#666666"
+                                           Visibility="{Binding Description, Converter={StaticResource BoolToVis}}"/>
+                            </StackPanel>
+                            <Button Grid.Column="2" Content="Delete" 
+                                    Command="{Binding DataContext.DeleteItemCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"
+                                    Padding="10,5" Margin="5,0,0,0"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <!-- Add Item Form -->
+        <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Vertical">
+            <TextBox Text="{Binding NewItemTitle, UpdateSourceTrigger=PropertyChanged}" 
+                     PlaceholderText="New item title..." 
+                     Margin="0,0,0,5" Padding="5"/>
+            <TextBox Text="{Binding NewItemDescription, UpdateSourceTrigger=PropertyChanged}" 
+                     PlaceholderText="Description (optional)..." 
+                     Margin="0,0,0,5" Padding="5"/>
+            <Button Content="Add Item" Command="{Binding AddItemCommand}" Padding="10,5" HorizontalAlignment="Left"/>
+        </StackPanel>
     </Grid>
 </Window>
