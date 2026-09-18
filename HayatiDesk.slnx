@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HayatiDesk/HayatiDesk.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HayatiDesk.Tests/HayatiDesk.Tests.csproj" />
+  </Folder>
+</Solution>
