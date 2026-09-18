@@ -1,23 +1,36 @@
-﻿using System.Text;
+﻿using System.IO;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using HayatiDesk.Data;
+using HayatiDesk.Services;
+using HayatiDesk.ViewModels;
 
 namespace HayatiDesk;
 
-/// <summary>
-/// Interaction logic for MainWindow.xaml
-/// </summary>
 public partial class MainWindow : Window
 {
+    private readonly MainViewModel _viewModel;
+    private readonly DatabaseContext _databaseContext;
+
     public MainWindow()
     {
+        var databasePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "hayatidesk.db");
+        _databaseContext = new DatabaseContext(databasePath);
+        _viewModel = new MainViewModel(_databaseContext, new ItemRepository(_databaseContext));
+        
         InitializeComponent();
+        DataContext = _viewModel;
+        
+        _ = InitializeAsync();
+    }
+
+    private async Task InitializeAsync()
+    {
+        await _viewModel.InitializeAsync();
+    }
+
+    protected override async void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        await _viewModel.DisposeAsync();
     }
 }
