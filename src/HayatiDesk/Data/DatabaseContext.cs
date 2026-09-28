@@ -94,7 +94,7 @@ public sealed class DatabaseContext : IAsyncDisposable
             CREATE INDEX IF NOT EXISTS IX_Items_DueDate ON Items(DueDate);
             """;
 
-        await using var tx = await connection.BeginTransactionAsync();
+        await using var tx = connection.BeginTransaction();
         try
         {
             await using var command = connection.CreateCommand();
