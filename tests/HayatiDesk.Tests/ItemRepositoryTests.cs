@@ -72,4 +72,64 @@ public class ItemRepositoryTests : IAsyncLifetime
         
         Assert.True(id > 0);
     }
+
+    [Fact]
+    public async Task ItemFields_RoundTripUpdateAndDelete()
+    {
+        var repository = new ItemRepository(_databaseContext);
+        var categoryId = await repository.AddCategoryAsync(new Category { Name = "Round trip" });
+        var item = new Item
+        {
+            Title = "Task", Description = "Details", CategoryId = categoryId,
+            Priority = 2, DueDate = "2026-10-01", Completed = true
+        };
+        item.Id = await repository.AddItemAsync(item);
+        var rows = new System.Collections.Generic.List<Item>();
+        await foreach (var row in repository.GetItemsByCategoryAsync(categoryId)) rows.Add(row);
+        var stored = Assert.Single(rows);
+        Assert.Equal(item.Title, stored.Title);
+        Assert.Equal(item.Description, stored.Description);
+        Assert.Equal(item.Priority, stored.Priority);
+        Assert.Equal(item.DueDate, stored.DueDate);
+        Assert.True(stored.Completed);
+        Assert.False(string.IsNullOrWhiteSpace(stored.CreatedAt));
+        Assert.False(string.IsNullOrWhiteSpace(stored.UpdatedAt));
+        Assert.Equivalent(stored, new HayatiDesk.ViewModels.ItemViewModel(stored).ToItem());
+        Assert.Equal(1, await repository.GetCompletedCountAsync());
+        stored.Completed = false;
+        stored.Description = null;
+        stored.DueDate = null;
+        Assert.True(await repository.UpdateItemAsync(stored));
+        rows.Clear();
+        await foreach (var row in repository.GetAllItemsAsync()) rows.Add(row);
+        stored = Assert.Single(rows);
+        Assert.Null(stored.Description);
+        Assert.Null(stored.DueDate);
+        Assert.False(stored.Completed);
+        Assert.Equal(1, await repository.GetPendingCountAsync());
+        Assert.True(await repository.DeleteItemAsync(stored.Id));
+        Assert.Equal(0, await repository.GetPendingCountAsync());
+    }
+
+    [Fact]
+    public async Task CategoryFields_RoundTripWithSchemaDefaults()
+    {
+        var repository = new ItemRepository(_databaseContext);
+        var id = await repository.AddCategoryAsync(new Category { Name = "Default color" });
+        var rows = new System.Collections.Generic.List<Category>();
+        await foreach (var row in repository.GetAllCategoriesAsync()) rows.Add(row);
+        var category = Assert.Single(rows);
+        Assert.Equal(id, category.Id);
+        Assert.Equal("Default color", category.Name);
+        Assert.Equal("#000000", category.Color);
+        Assert.False(string.IsNullOrWhiteSpace(category.CreatedAt));
+    }
+
+    [Fact]
+    public void IncompleteItem_HasNoStrikethroughDecoration()
+    {
+        var converter = new StrikethroughConverter();
+        Assert.Null(converter.Convert(false, typeof(object), null!, System.Globalization.CultureInfo.InvariantCulture));
+        Assert.NotNull(converter.Convert(true, typeof(object), null!, System.Globalization.CultureInfo.InvariantCulture));
+    }
 }

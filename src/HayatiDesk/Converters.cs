@@ -43,7 +43,7 @@ public class ColorToBrushConverter : IValueConverter
 
 public class StrikethroughConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         if (value is bool completed && completed)
         {
