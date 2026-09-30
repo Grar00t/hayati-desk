@@ -1,28 +1,41 @@
 # HayatiDesk
 
-**Offline-first life organizer and local infographic engine.** 
-Zero cloud dependencies. Zero telemetry. Strict local execution.
+Offline-first Windows life organizer backed by local SQLite storage.
 
-## Architectural Scope
-HayatiDesk is a high-performance Windows desktop application engineered for deterministic local execution. It leverages .NET 10 LTS, WPF, and a strict SQLite WAL backend to manage, visualize, and organize complex local datasets without network reliance.
+## Current implementation
 
-## Core Stack
-- **Runtime**: .NET 10 (LTS) / C# 13
-- **UI Framework**: WPF (Windows Presentation Foundation)
-- **State Management**: CommunityToolkit.Mvvm (Source Generators)
-- **Persistence**: SQLite (`Microsoft.Data.Sqlite`) with Write-Ahead Logging (WAL)
-- **Visualization**: LiveCharts2 (SkiaSharp) for native rendering, WebView2 for complex local HTML/JS infographics.
+The current source tree is a .NET 10 / WPF application. Its project file currently references:
 
-## Engineering Directives
-1. **Strict MVVM**: Zero code-behind. All UI state is managed via `[ObservableProperty]` and `[RelayCommand]`.
-2. **Resource Safety**: Explicit disposal of all `SqliteConnection`, `WebView2`, and SkiaSharp surfaces.
-3. **Asynchronous I/O**: All database and file system operations utilize `IAsyncEnumerable<T>` and `async/await` to prevent UI thread starvation.
-4. **Air-Gapped Security**: No external network requests. All web assets for WebView2 are bundled locally.
+- `CommunityToolkit.Mvvm` 8.4.2;
+- `Microsoft.Data.Sqlite` 10.0.12.
 
-## Repository Structure
+Earlier design text referenced LiveCharts2/SkiaSharp and WebView2. Those package references have been removed from the current project and are therefore not part of the current runtime contract.
+
+## Repository structure
+
 ```text
 hayati-desk/
-├── src/HayatiDesk/          # WPF Application, ViewModels, Views, Services
-├── tests/HayatiDesk.Tests/  # xUnit integration and unit tests
-├── assets/                  # Local fonts, templates, and vendor JS/CSS
-└── docs/                    # Architecture Decision Records (ADRs)
+├── src/HayatiDesk/          # WPF application
+├── tests/HayatiDesk.Tests/  # xUnit tests
+└── .github/workflows/       # CI definition
+```
+
+The current source includes local SQLite persistence, repository/services code, view models, and WPF views.
+
+## Build and test
+
+```powershell
+dotnet restore .\HayatiDesk.slnx
+dotnet build .\HayatiDesk.slnx -c Release
+dotnet test .\HayatiDesk.slnx -c Release --no-build
+```
+
+## Locality boundary
+
+The application is designed for local storage and the current repository search did not identify an application HTTP client. That is a source-level observation, not a runtime zero-egress proof.
+
+Do not describe a build as air-gapped or zero-egress solely because no cloud package is present. Runtime egress requires an execution-time network gate on the exact build being evaluated.
+
+## Evidence rule
+
+A successful build establishes buildability for the exercised revision and environment. It does not by itself establish zero telemetry, zero egress, production readiness, or security certification.
