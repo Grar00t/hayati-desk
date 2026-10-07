@@ -8,6 +8,7 @@ namespace HayatiDesk.Data;
 
 public sealed class DatabaseContext : IAsyncDisposable
 {
+    private const int CurrentSchemaVersion = 1;
     private readonly string _connectionString;
     private readonly SemaphoreSlim _semaphore = new(1, 1); // D1: Concurrency control
     private bool _disposed;
@@ -34,17 +35,21 @@ public sealed class DatabaseContext : IAsyncDisposable
             await using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync();
 
-            // D4: Schema versioning
+            // D4: Schema versioning. Never open a database created by a newer schema.
             await using (var cmd = connection.CreateCommand())
             {
                 cmd.CommandText = "PRAGMA user_version;";
                 var version = Convert.ToInt32(await cmd.ExecuteScalarAsync());
-                if (version < 1)
+
+                if (version > CurrentSchemaVersion)
+                {
+                    throw new InvalidOperationException(
+                        $"Database schema version {version} is newer than supported version {CurrentSchemaVersion}.");
+                }
+
+                if (version < CurrentSchemaVersion)
                 {
                     await MigrateV1Async(connection);
-                    await using var updateCmd = connection.CreateCommand();
-                    updateCmd.CommandText = "PRAGMA user_version = 1;";
-                    await updateCmd.ExecuteNonQueryAsync();
                 }
             }
 
@@ -99,7 +104,11 @@ public sealed class DatabaseContext : IAsyncDisposable
         {
             await using var command = connection.CreateCommand();
             command.Transaction = tx;
-            command.CommandText = createCategoriesTable + createItemsTable + createItemsIndex;
+            command.CommandText =
+                createCategoriesTable +
+                createItemsTable +
+                createItemsIndex +
+                $"PRAGMA user_version = {CurrentSchemaVersion};";
             await command.ExecuteNonQueryAsync();
             await tx.CommitAsync();
         }

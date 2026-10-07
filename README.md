@@ -22,6 +22,8 @@ hayati-desk/
 
 The current source includes local SQLite persistence, repository/services code, view models, and WPF views.
 
+The database schema is currently version 1. Migration to v1 and its `user_version` marker commit atomically, and the application refuses to open a database marked with a newer schema version rather than guessing compatibility.
+
 ## Build and test
 
 ```powershell
