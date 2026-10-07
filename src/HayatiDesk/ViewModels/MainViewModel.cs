@@ -111,12 +111,22 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
             Completed = false
         };
 
-        var id = await _itemRepository.AddItemAsync(newItem);
-        newItem.Id = id;
+        int id;
+        try
+        {
+            id = await _itemRepository.AddItemAsync(newItem);
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "Could not add the item.";
+            return;
+        }
 
+        newItem.Id = id;
         RunOnUi(() => Items.Add(new ItemViewModel(newItem)));
         NewItemTitle = string.Empty;
         NewItemDescription = string.Empty;
+        ErrorMessage = null;
         await UpdateStatsAsync();
     }
 
@@ -129,23 +139,27 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         var previous = item.Completed;
         item.Completed = !previous;
 
+        bool updated;
         try
         {
-            if (!await _itemRepository.UpdateItemAsync(item.ToItem()))
-            {
-                item.Completed = previous;
-                ErrorMessage = "Item update was not persisted.";
-                return;
-            }
-
-            ErrorMessage = null;
-            await UpdateStatsAsync();
+            updated = await _itemRepository.UpdateItemAsync(item.ToItem());
         }
-        catch
+        catch (Exception)
         {
             item.Completed = previous;
-            throw;
+            ErrorMessage = "Could not update the item.";
+            return;
         }
+
+        if (!updated)
+        {
+            item.Completed = previous;
+            ErrorMessage = "Item update was not persisted.";
+            return;
+        }
+
+        ErrorMessage = null;
+        await UpdateStatsAsync();
     }
 
     [RelayCommand]
@@ -153,7 +167,18 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         if (item == null) return;
 
-        if (!await _itemRepository.DeleteItemAsync(item.Id))
+        bool deleted;
+        try
+        {
+            deleted = await _itemRepository.DeleteItemAsync(item.Id);
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "Could not delete the item.";
+            return;
+        }
+
+        if (!deleted)
         {
             ErrorMessage = "Item was not deleted.";
             return;

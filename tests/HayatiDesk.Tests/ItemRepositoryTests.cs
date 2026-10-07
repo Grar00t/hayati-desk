@@ -110,6 +110,23 @@ public class ItemRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SeedDefaultCategoriesIfEmptyAsync_DoesNotSeedWhenCustomCategoryExists()
+    {
+        var repository = new ItemRepository(_databaseContext);
+        await repository.AddCategoryAsync(new Category { Name = "Custom", Color = "#123456" });
+
+        var inserted = await repository.SeedDefaultCategoriesIfEmptyAsync();
+
+        var rows = new System.Collections.Generic.List<Category>();
+        await foreach (var row in repository.GetAllCategoriesAsync()) rows.Add(row);
+
+        Assert.Equal(0, inserted);
+        var only = Assert.Single(rows);
+        Assert.Equal("Custom", only.Name);
+        Assert.Equal("#123456", only.Color);
+    }
+
+    [Fact]
     public async Task AddItemAsync_InsertsItem_ReturnsId()
     {
         var repository = new ItemRepository(_databaseContext);

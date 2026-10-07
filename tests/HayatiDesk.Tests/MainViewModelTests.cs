@@ -23,16 +23,35 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task Toggle_rolls_back_when_repository_throws()
+    public async Task Toggle_rolls_back_and_surfaces_error_when_repository_throws()
     {
         var repository = new StubRepository { UpdateException = new InvalidOperationException("write failed") };
         var viewModel = new MainViewModel(repository);
         var item = new ItemViewModel(new Item { Id = 7, Title = "x", CategoryId = 1, Completed = false });
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => viewModel.ToggleItemCompletionCommand.ExecuteAsync(item));
+        await viewModel.ToggleItemCompletionCommand.ExecuteAsync(item);
 
         Assert.False(item.Completed);
+        Assert.Equal("Could not update the item.", viewModel.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Add_preserves_input_and_surfaces_error_when_repository_throws()
+    {
+        var repository = new StubRepository { AddException = new InvalidOperationException("write failed") };
+        var viewModel = new MainViewModel(repository)
+        {
+            SelectedCategory = new Category { Id = 1, Name = "General" },
+            NewItemTitle = "Keep me",
+            NewItemDescription = "Still here"
+        };
+
+        await viewModel.AddItemCommand.ExecuteAsync(null);
+
+        Assert.Empty(viewModel.Items);
+        Assert.Equal("Keep me", viewModel.NewItemTitle);
+        Assert.Equal("Still here", viewModel.NewItemDescription);
+        Assert.Equal("Could not add the item.", viewModel.ErrorMessage);
     }
 
     [Fact]
@@ -63,11 +82,27 @@ public class MainViewModelTests
         Assert.Null(viewModel.ErrorMessage);
     }
 
+    [Fact]
+    public async Task Delete_keeps_item_and_surfaces_error_when_repository_throws()
+    {
+        var repository = new StubRepository { DeleteException = new InvalidOperationException("write failed") };
+        var viewModel = new MainViewModel(repository);
+        var item = new ItemViewModel(new Item { Id = 7, Title = "x", CategoryId = 1 });
+        viewModel.Items.Add(item);
+
+        await viewModel.DeleteItemCommand.ExecuteAsync(item);
+
+        Assert.Contains(item, viewModel.Items);
+        Assert.Equal("Could not delete the item.", viewModel.ErrorMessage);
+    }
+
     private sealed class StubRepository : IItemRepository
     {
         public bool UpdateResult { get; init; } = true;
         public bool DeleteResult { get; init; } = true;
+        public Exception? AddException { get; init; }
         public Exception? UpdateException { get; init; }
+        public Exception? DeleteException { get; init; }
 
         public async IAsyncEnumerable<Category> GetAllCategoriesAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
@@ -93,8 +128,12 @@ public class MainViewModelTests
         public Task<int> AddCategoryAsync(Category category, CancellationToken cancellationToken = default) =>
             Task.FromResult(1);
 
-        public Task<int> AddItemAsync(Item item, CancellationToken cancellationToken = default) =>
-            Task.FromResult(1);
+        public Task<int> AddItemAsync(Item item, CancellationToken cancellationToken = default)
+        {
+            if (AddException is not null)
+                return Task.FromException<int>(AddException);
+            return Task.FromResult(1);
+        }
 
         public Task<bool> UpdateItemAsync(Item item, CancellationToken cancellationToken = default)
         {
@@ -103,8 +142,12 @@ public class MainViewModelTests
             return Task.FromResult(UpdateResult);
         }
 
-        public Task<bool> DeleteItemAsync(int itemId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(DeleteResult);
+        public Task<bool> DeleteItemAsync(int itemId, CancellationToken cancellationToken = default)
+        {
+            if (DeleteException is not null)
+                return Task.FromException<bool>(DeleteException);
+            return Task.FromResult(DeleteResult);
+        }
 
         public Task<int> GetCompletedCountAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(0);
