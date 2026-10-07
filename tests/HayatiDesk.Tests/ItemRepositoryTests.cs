@@ -72,6 +72,7 @@ public class ItemRepositoryTests : IAsyncLifetime
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             if (File.Exists(newerDbPath)) File.Delete(newerDbPath);
             if (File.Exists(newerDbPath + "-wal")) File.Delete(newerDbPath + "-wal");
             if (File.Exists(newerDbPath + "-shm")) File.Delete(newerDbPath + "-shm");
