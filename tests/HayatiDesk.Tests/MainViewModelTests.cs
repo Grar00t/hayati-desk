@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using HayatiDesk.Services;
@@ -68,19 +69,19 @@ public class MainViewModelTests
         public bool DeleteResult { get; init; } = true;
         public Exception? UpdateException { get; init; }
 
-        public async IAsyncEnumerable<Category> GetAllCategoriesAsync(CancellationToken cancellationToken = default)
+        public async IAsyncEnumerable<Category> GetAllCategoriesAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             await Task.CompletedTask;
             yield break;
         }
 
-        public async IAsyncEnumerable<Item> GetItemsByCategoryAsync(int categoryId, CancellationToken cancellationToken = default)
+        public async IAsyncEnumerable<Item> GetItemsByCategoryAsync(int categoryId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             await Task.CompletedTask;
             yield break;
         }
 
-        public async IAsyncEnumerable<Item> GetAllItemsAsync(CancellationToken cancellationToken = default)
+        public async IAsyncEnumerable<Item> GetAllItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             await Task.CompletedTask;
             yield break;
