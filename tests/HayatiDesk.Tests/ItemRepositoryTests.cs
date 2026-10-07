@@ -50,7 +50,7 @@ public class ItemRepositoryTests : IAsyncLifetime
 
         try
         {
-            await using (var connection = new SqliteConnection($"Data Source={newerDbPath}"))
+            await using (var connection = new SqliteConnection($"Data Source={newerDbPath};Pooling=False"))
             {
                 await connection.OpenAsync();
                 await using var command = connection.CreateCommand();
@@ -64,7 +64,7 @@ public class ItemRepositoryTests : IAsyncLifetime
 
             Assert.Contains("newer than supported", error.Message);
 
-            await using var verifyConnection = new SqliteConnection($"Data Source={newerDbPath}");
+            await using var verifyConnection = new SqliteConnection($"Data Source={newerDbPath};Pooling=False");
             await verifyConnection.OpenAsync();
             await using var verifyCommand = verifyConnection.CreateCommand();
             verifyCommand.CommandText = "PRAGMA user_version;";
