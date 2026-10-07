@@ -87,7 +87,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         await foreach (var item in _itemRepository.GetItemsByCategoryAsync(categoryId))
         {
             // U3: Marshal to UI thread
-            Application.Current?.Dispatcher.Invoke(() => Items.Add(new ItemViewModel(item)), DispatcherPriority.Normal);
+            RunOnUi(() => Items.Add(new ItemViewModel(item)));
         }
     }
 
@@ -125,7 +125,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         var id = await _itemRepository.AddItemAsync(newItem);
         newItem.Id = id;
 
-        Application.Current?.Dispatcher.Invoke(() => Items.Add(new ItemViewModel(newItem)), DispatcherPriority.Normal);
+        RunOnUi(() => Items.Add(new ItemViewModel(newItem)));
         NewItemTitle = string.Empty;
         NewItemDescription = string.Empty;
         await UpdateStatsAsync();
@@ -137,9 +137,26 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         if (item == null) return;
 
-        item.Completed = !item.Completed;
-        await _itemRepository.UpdateItemAsync(item.ToItem());
-        await UpdateStatsAsync();
+        var previous = item.Completed;
+        item.Completed = !previous;
+
+        try
+        {
+            if (!await _itemRepository.UpdateItemAsync(item.ToItem()))
+            {
+                item.Completed = previous;
+                ErrorMessage = "Item update was not persisted.";
+                return;
+            }
+
+            ErrorMessage = null;
+            await UpdateStatsAsync();
+        }
+        catch
+        {
+            item.Completed = previous;
+            throw;
+        }
     }
 
     [RelayCommand]
@@ -147,9 +164,27 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         if (item == null) return;
 
-        await _itemRepository.DeleteItemAsync(item.Id);
-        Application.Current?.Dispatcher.Invoke(() => Items.Remove(item), DispatcherPriority.Normal);
+        if (!await _itemRepository.DeleteItemAsync(item.Id))
+        {
+            ErrorMessage = "Item was not deleted.";
+            return;
+        }
+
+        RunOnUi(() => Items.Remove(item));
+        ErrorMessage = null;
         await UpdateStatsAsync();
+    }
+
+    private static void RunOnUi(Action action)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            action();
+            return;
+        }
+
+        dispatcher.Invoke(action, DispatcherPriority.Normal);
     }
 
     public ValueTask DisposeAsync()
