@@ -87,6 +87,9 @@ public class MainViewModelTests
             yield break;
         }
 
+        public Task<int> SeedDefaultCategoriesIfEmptyAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(0);
+
         public Task<int> AddCategoryAsync(Category category, CancellationToken cancellationToken = default) =>
             Task.FromResult(1);
 

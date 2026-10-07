@@ -14,6 +14,7 @@ public interface IItemRepository
     IAsyncEnumerable<Category> GetAllCategoriesAsync(CancellationToken cancellationToken = default);
     IAsyncEnumerable<Item> GetItemsByCategoryAsync(int categoryId, CancellationToken cancellationToken = default);
     IAsyncEnumerable<Item> GetAllItemsAsync(CancellationToken cancellationToken = default);
+    Task<int> SeedDefaultCategoriesIfEmptyAsync(CancellationToken cancellationToken = default);
     Task<int> AddCategoryAsync(Category category, CancellationToken cancellationToken = default);
     Task<int> AddItemAsync(Item item, CancellationToken cancellationToken = default);
     Task<bool> UpdateItemAsync(Item item, CancellationToken cancellationToken = default);
@@ -94,6 +95,39 @@ public sealed class ItemRepository : IItemRepository
         while (await reader.ReadAsync(cancellationToken))
         {
             yield return ReadItem(reader);
+        }
+    }
+
+    public async Task<int> SeedDefaultCategoriesIfEmptyAsync(CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            INSERT INTO Categories (Name, Color)
+            SELECT Name, Color
+            FROM (
+                SELECT 'General' AS Name, '#000000' AS Color
+                UNION ALL SELECT 'Work', '#FF0000'
+                UNION ALL SELECT 'Personal', '#00FF00'
+            )
+            WHERE NOT EXISTS (SELECT 1 FROM Categories);
+            """;
+
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = connection.BeginTransaction();
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = sql;
+
+        try
+        {
+            var rowsAffected = await command.ExecuteNonQueryAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return rowsAffected;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
         }
     }
 

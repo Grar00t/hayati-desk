@@ -54,6 +54,25 @@ public class ItemRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SeedDefaultCategoriesIfEmptyAsync_SeedsExactlyOnce()
+    {
+        var repository = new ItemRepository(_databaseContext);
+
+        var firstInsertCount = await repository.SeedDefaultCategoriesIfEmptyAsync();
+        var secondInsertCount = await repository.SeedDefaultCategoriesIfEmptyAsync();
+
+        var rows = new System.Collections.Generic.List<Category>();
+        await foreach (var row in repository.GetAllCategoriesAsync()) rows.Add(row);
+
+        Assert.Equal(3, firstInsertCount);
+        Assert.Equal(0, secondInsertCount);
+        Assert.Equal(3, rows.Count);
+        Assert.Contains(rows, category => category.Name == "General");
+        Assert.Contains(rows, category => category.Name == "Work");
+        Assert.Contains(rows, category => category.Name == "Personal");
+    }
+
+    [Fact]
     public async Task AddItemAsync_InsertsItem_ReturnsId()
     {
         var repository = new ItemRepository(_databaseContext);

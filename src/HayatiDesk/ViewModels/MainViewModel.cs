@@ -53,24 +53,13 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private async Task LoadCategoriesAsync()
     {
+        // Seed all defaults in one SQLite statement so startup cannot leave a partial set.
+        await _itemRepository.SeedDefaultCategoriesIfEmptyAsync();
+
         Categories.Clear();
         await foreach (var category in _itemRepository.GetAllCategoriesAsync())
         {
             Categories.Add(category);
-        }
-
-        // R2: Seed default categories if empty
-        if (Categories.Count == 0)
-        {
-            await _itemRepository.AddCategoryAsync(new Category { Name = "General", Color = "#000000" });
-            await _itemRepository.AddCategoryAsync(new Category { Name = "Work", Color = "#FF0000" });
-            await _itemRepository.AddCategoryAsync(new Category { Name = "Personal", Color = "#00FF00" });
-            
-            Categories.Clear();
-            await foreach (var category in _itemRepository.GetAllCategoriesAsync())
-            {
-                Categories.Add(category);
-            }
         }
 
         if (Categories.Count > 0 && SelectedCategory == null)
