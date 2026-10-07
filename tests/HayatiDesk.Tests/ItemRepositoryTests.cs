@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using HayatiDesk.Data;
 using HayatiDesk.Services;
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace HayatiDesk.Tests;
@@ -39,6 +40,42 @@ public class ItemRepositoryTests : IAsyncLifetime
         catch
         {
             // Ignore cleanup errors
+        }
+    }
+
+    [Fact]
+    public async Task InitializeAsync_RejectsDatabaseFromNewerSchemaVersion()
+    {
+        var newerDbPath = Path.Combine(Path.GetTempPath(), $"hayatidesk_newer_{Guid.NewGuid()}.db");
+
+        try
+        {
+            await using (var connection = new SqliteConnection($"Data Source={newerDbPath};Pooling=False"))
+            {
+                await connection.OpenAsync();
+                await using var command = connection.CreateCommand();
+                command.CommandText = "PRAGMA user_version = 2;";
+                await command.ExecuteNonQueryAsync();
+            }
+
+            await using var context = new DatabaseContext(newerDbPath);
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => context.InitializeAsync());
+
+            Assert.Contains("newer than supported", error.Message);
+
+            await using var verifyConnection = new SqliteConnection($"Data Source={newerDbPath};Pooling=False");
+            await verifyConnection.OpenAsync();
+            await using var verifyCommand = verifyConnection.CreateCommand();
+            verifyCommand.CommandText = "PRAGMA user_version;";
+            Assert.Equal(2L, (long)(await verifyCommand.ExecuteScalarAsync())!);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(newerDbPath)) File.Delete(newerDbPath);
+            if (File.Exists(newerDbPath + "-wal")) File.Delete(newerDbPath + "-wal");
+            if (File.Exists(newerDbPath + "-shm")) File.Delete(newerDbPath + "-shm");
         }
     }
 
